@@ -4,22 +4,22 @@ import FirstScene from "./scene.js";
 // https://shakuro.com/blog/phaser-js-a-step-by-step-tutorial-on-making-a-phaser-3-game#part-3
 
 const config = {
-  type: Phaser.AUTO,
-  width: 11 * 32,
-  height: 11 * 32,
-  parent: 'game-container',
-  backgroundColor: "#f9f9f9",
-  physics: {
-    default: "arcade",
-    arcade: {
-      gravity: {
-        x: 0,
-        y: 0,
-      },
-      debug: false,
+    type: Phaser.AUTO,
+    width: 11 * 32,
+    height: 11 * 32,
+    parent: 'game-container',
+    backgroundColor: "#f9f9f9",
+    physics: {
+        default: "arcade",
+        arcade: {
+            gravity: {
+                x: 0,
+                y: 0,
+            },
+            debug: true,
+        },
     },
-  },
-  scene: [FirstScene]
+    scene: [FirstScene]
 };
 
 const game = new Phaser.Game(config);
