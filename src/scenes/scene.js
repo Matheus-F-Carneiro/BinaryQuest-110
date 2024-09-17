@@ -1,8 +1,12 @@
-import Player from "./player.js";
-import Rock from "./rock.js";
-import Hole from "./hole.js";
+import Player from "../objects/player.js";
+import Box from "../objects/box.js";
+import Hole from "../objects/hole.js";
 
 export default class FirstScene extends Phaser.Scene {
+    constructor() {
+        super({ key: 'FirstScene' });
+    }
+    
     preload() {
         this.load.image("tileset", "assets/background/terrain.png");
         this.load.spritesheet("rock", "assets/background/terrain.png", { frameWidth: 64, frameHeight: 64 });
