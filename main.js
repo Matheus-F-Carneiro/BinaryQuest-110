@@ -1,4 +1,4 @@
-import FirstScene from "./src/scenes/scene.js";
+import FirstScene from "/src/scenes/scene.js";
 
 // https://dev.to/ceceliacreates/building-a-mobile-game-with-phaser-and-ionic-vue-building-a-phaser-game-2f74#adding-game-objects
 // https://shakuro.com/blog/phaser-js-a-step-by-step-tutorial-on-making-a-phaser-3-game#part-3

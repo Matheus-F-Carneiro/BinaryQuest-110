@@ -1,13 +1,12 @@
-export default class Rock extends Phaser.GameObjects.Sprite {
-
+export default class Hole extends Phaser.GameObjects.Sprite {
     constructor(scene, x, y) {
-        super(scene, x, y);
-        this.startingPos = [x, y];
+        super(scene, x, y, 'hole');
+        this.filled = false;
+        this.scene = scene;
+        this.setOrigin(0, 0);
+    } 
 
-        this.setTexture("rock", 25);
-        this.setScale(1);
-
-        scene.add.existing(this);
+    fill() {
+        this.filled = true;
     }
-
 }

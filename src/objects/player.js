@@ -1,18 +1,21 @@
-export default class Player extends Phaser.GameObjects.Sprite {
+export default class Player extends Phaser.Physics.Arcade.Sprite {
 
     constructor(scene, x, y) {
-        super(scene, x, y);
+        super(scene, x, y, 'character');
+        scene.physics.world.enable(this);
+        this.setOrigin(0, 0);
+        this.scene = scene;
+        
+        this.gridSize = 32;
+        this.isMoving = false;
+        this.moveDirection = null;
 
-        this.cursors = this.scene.input.keyboard.createCursorKeys();
-        this.speed = 160;
-        this.setTexture("character");
-        this.setScale(1);
+        this._createAnimations(scene); 
 
-        this._createAnimations(scene);
-        scene.add.existing(this);
+        this.cursors = scene.input.keyboard.createCursorKeys();
     }
 
-    _createAnimations(scene) {
+    _createAnimations(scene) { 
         scene.anims.create({
             key: 'staticdown',
             frames: [{ key: 'character', frame: 0 }],
@@ -72,54 +75,85 @@ export default class Player extends Phaser.GameObjects.Sprite {
     }
 
     update() {
+        if (this.isMoving) return;
 
+        if (this.cursors.left.isDown) {
+            this._move(-this.gridSize, 0, 'moveleft', 'staticleft');
+        } else if (this.cursors.right.isDown) {
+            this._move(this.gridSize, 0, 'moveright', 'staticright');
+        } else if (this.cursors.up.isDown) {
+            this._move(0, -this.gridSize, 'moveup', 'staticup');
+        } else if (this.cursors.down.isDown) {
+            this._move(0, this.gridSize, 'movedown', 'staticdown');
+        }
+    }
 
-        if (
-            this.cursors.left.isDown ||
-            this.cursors.right.isDown
-        ) {
-            if (!(this.cursors.up.isDown || this.cursors.down.isDown)) {
-                if (this.cursors.left.isDown)
-                    this.lastdirect = 1;
-                if (this.cursors.right.isDown)
-                    this.lastdirect = 3;
-                this.body.setVelocityY(0);
-                this.anims.play(this.cursors.left.isDown ? 'moveleft' : 'moveright', true);
-                this.body.setVelocityX(this.cursors.left.isDown ? -160 : 160);
-            }
-            else {
-                this.body.setVelocityX(this.cursors.left.isDown ? -100 : 100);
-                this.lastdirect = this.cursors.left.isDown ? 3 : 1;
-            }
-        }
-        else {
-            if (!(this.cursors.up.isDown || this.cursors.down.isDown)) {
-                this.body.setVelocityX(0);
-            }
-        }
-        if (
-            this.cursors.up.isDown ||
-            this.cursors.down.isDown
-        ) {
-            this.anims.play(this.cursors.up.isDown ? 'moveup' : 'movedown', true);
-            if (this.cursors.up.isDown) {
-                this.lastdirect = 2;
-            }
-            if (this.cursors.down.isDown) {
-                this.lastdirect = 0;
-            }
-            if (!(this.cursors.left.isDown || this.cursors.right.isDown)) {
-                this.body.setVelocityX(0);
-                this.body.setVelocityY(this.cursors.up.isDown ? -160 : 160);
-            }
-            else {
-                this.body.setVelocityY(this.cursors.up.isDown ? -100 : 100);
-            }
-        }
-        else { this.body.setVelocityY(0); }
+    _move(dx, dy, moveAnim, staticAnim) {
+        const targetX = this.x + dx;
+        const targetY = this.y + dy;
 
-        if (!this.cursors.left.isDown && !this.cursors.right.isDown && !this.cursors.up.isDown && !this.cursors.down.isDown) {
-            this.anims.play(this.lastdirect == 0 ? 'staticdown' : this.lastdirect == 1 ? 'staticleft' : this.lastdirect == 2 ? 'staticup' : 'staticright', true);
+        let box = this._checkForBox(targetX, targetY);
+        if (box && !this._tryPushBox(box, dx, dy)) return;
+
+        this.isMoving = true;
+        this.moveDirection = staticAnim;
+
+        this.play(moveAnim, true);
+
+        this.scene.tweens.add({
+            targets: this,
+            x: targetX,
+            y: targetY,
+            duration: 200,
+            onComplete: () => {
+                this.isMoving = false;
+                this.play(staticAnim);
+            }
+        });
+    }
+
+    _checkForBox(targetX, targetY) {
+        let box = null;
+        this.scene.boxes.getChildren().forEach((b) => {
+            if (Phaser.Math.Fuzzy.Equal(b.x, targetX, 1) && Phaser.Math.Fuzzy.Equal(b.y, targetY, 1)) {
+                box = b;
+            }
+        });
+        return box;
+    }
+
+    _tryPushBox(box, dx, dy) {
+        const targetX = box.x + dx;
+        const targetY = box.y + dy;
+
+        const blocked = this._checkCollisionWithObstacles(targetX, targetY);
+        if (blocked) return false;
+
+        this.scene.tweens.add({
+            targets: box,
+            x: targetX,
+            y: targetY,
+            duration: 200,
+        });
+
+        return true;
+    }
+
+    _checkCollisionWithObstacles(targetX, targetY) {
+        let isBlocked = false;
+
+        const tileAtTarget = this.scene.groundLayer.getTileAtWorldXY(targetX, targetY) || 
+                             this.scene.wallLayer.getTileAtWorldXY(targetX, targetY);
+        
+        if (tileAtTarget && tileAtTarget.properties.collides) {
+            isBlocked = true;
         }
+        this.scene.boxes.getChildren().forEach((box) => {
+            if (Phaser.Math.Fuzzy.Equal(box.x, targetX, 1) && Phaser.Math.Fuzzy.Equal(box.y, targetY, 1)) {
+                isBlocked = true;
+            }
+        });
+
+        return isBlocked;
     }
 }
