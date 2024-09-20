@@ -14,8 +14,8 @@ export default class FirstScene extends Phaser.Scene {
         });
         this.load.image('tileset', "assets/background/terrain_atlas.png");
         this.load.image('box', "assets/entities/box.png");
-        this.load.image('hole', "assets/entities/hole.png")
-        this.load.tilemapTiledJSON('map', "assets/themap.json")
+        this.load.image('hole', "assets/entities/hole.png");
+        this.load.tilemapTiledJSON('map', "assets/themap.json");
     }
 
     create() {
@@ -48,35 +48,47 @@ export default class FirstScene extends Phaser.Scene {
         objectLayer.objects.forEach(obj => {
             if (obj.type === 'box') {
                 const box = new Box(this, obj.x, obj.y);
+                this.add.existing(box);  // Add the box to the scene
                 this.boxes.add(box);
             } else if (obj.type === 'hole') {
                 const hole = new Hole(this, obj.x, obj.y);
+                this.add.existing(hole);  // Add the hole to the scene
                 this.holes.add(hole);
             }
         });
+
 
         this.cameras.main.startFollow(this.player);
         const mapWidth = map.widthInPixels;
         const mapHeight = map.heightInPixels;
         this.cameras.main.setBounds(0, 0, mapWidth, mapHeight);
 
+        this.boxes.setDepth(2); // Higher value brings the box to the front
+        this.holes.setDepth(2);
+        tallObstacleLayer.setDepth(3);
 
-
-        this.physics.add.collider(this.player, floorObstacleLayer);
-        this.physics.add.collider(this.player, wallLayer);
-        this.physics.add.collider(this.player, this.boxes, this.player.handleBoxCollision, null, this.player);
+        // Enable collisions between the player and obstacles
+        // Enable collisions between the player and obstacles
+        this.physics.add.collider(this.player, floorObstacleLayer, this.player._handleCollision, null, this.player);
+        this.physics.add.collider(this.player, wallLayer, this.player._handleCollision, null, this.player);
+        this.physics.add.collider(this.player, this.holes, this.player._handleCollision, null, this.player);
+        this.physics.add.collider(this.player, this.boxes, this.player._handleBoxCollision, null, this.player);
 
         this.physics.add.collider(this.boxes, floorObstacleLayer);
         this.physics.add.collider(this.boxes, wallLayer);
-        this.physics.add.overlap(this.boxes, this.holes, this.handleBoxHoleCollision, null, this);
+        this.physics.add.overlap(this.boxes, this.holes, this._handleBoxHoleCollision, null, this);
 
     }
 
     update(time, delta) {
         this.player.update(this.cursors);
+
+        this.boxes.getChildren().forEach(box => {
+            box._updateMovement();
+        });
     }
 
-    handleBoxHoleCollision(box, hole) {
+    _handleBoxHoleCollision(box, hole) {
         if (!hole.filled) {
             hole.destroy();
             box.destroy();

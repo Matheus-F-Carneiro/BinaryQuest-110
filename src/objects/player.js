@@ -3,19 +3,21 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     constructor(scene, x, y) {
         super(scene, x, y, 'character');
         scene.physics.world.enable(this);
-        this.setOrigin(0, 0);
         this.scene = scene;
-        
+        this.setOrigin(0, 0);
         this.gridSize = 32;
         this.isMoving = false;
-        this.moveDirection = null;
+        this.startX = 0;
+        this.startY = 0;
+        this.movementSpeed = 200;
 
-        this._createAnimations(scene); 
+        this._createAnimations(scene);
 
         this.cursors = scene.input.keyboard.createCursorKeys();
+
     }
 
-    _createAnimations(scene) { 
+    _createAnimations(scene) {
         scene.anims.create({
             key: 'staticdown',
             frames: [{ key: 'character', frame: 0 }],
@@ -74,43 +76,67 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 
     }
 
+
+
     update() {
-        if (this.isMoving) return;
+        if (this.isMoving) {
+            this._checkMovement();
+            return;
+        }
 
         if (this.cursors.left.isDown) {
-            this._move(-this.gridSize, 0, 'moveleft', 'staticleft');
+            this._startMove(-this.gridSize, 0, 'moveleft', 'staticleft');
         } else if (this.cursors.right.isDown) {
-            this._move(this.gridSize, 0, 'moveright', 'staticright');
+            this._startMove(this.gridSize, 0, 'moveright', 'staticright');
         } else if (this.cursors.up.isDown) {
-            this._move(0, -this.gridSize, 'moveup', 'staticup');
+            this._startMove(0, -this.gridSize, 'moveup', 'staticup');
         } else if (this.cursors.down.isDown) {
-            this._move(0, this.gridSize, 'movedown', 'staticdown');
+            this._startMove(0, this.gridSize, 'movedown', 'staticdown');
         }
     }
 
-    _move(dx, dy, moveAnim, staticAnim) {
-        const targetX = this.x + dx;
-        const targetY = this.y + dy;
-
-        let box = this._checkForBox(targetX, targetY);
-        if (box && !this._tryPushBox(box, dx, dy)) return;
-
+    _startMove(dx, dy, moveAnim, staticAnim) {
         this.isMoving = true;
+        this.startX = this.x;
+        this.startY = this.y;
+
         this.moveDirection = staticAnim;
 
         this.play(moveAnim, true);
 
-        this.scene.tweens.add({
-            targets: this,
-            x: targetX,
-            y: targetY,
-            duration: 200,
-            onComplete: () => {
-                this.isMoving = false;
-                this.play(staticAnim);
-            }
-        });
+        this.setVelocity(dx === 0 ? 0 : (dx > 0 ? this.movementSpeed : -this.movementSpeed),
+            dy === 0 ? 0 : (dy > 0 ? this.movementSpeed : -this.movementSpeed));
     }
+
+    _checkMovement() {
+        const distanceX = Math.abs(this.x - this.startX);
+        const distanceY = Math.abs(this.y - this.startY);
+
+        if (distanceX >= this.gridSize || distanceY >= this.gridSize) {
+            this.isMoving = false;
+
+            this.setVelocity(0, 0);
+
+            this.x = Math.round(this.x / this.gridSize) * this.gridSize;
+            this.y = Math.round(this.y / this.gridSize) * this.gridSize;
+
+            this.play(this.moveDirection);
+        }
+    }
+
+    _handleCollision(player, tile) {
+        if (this.isMoving) {
+            this.isMoving = false;
+
+            this.setVelocity(0, 0);
+
+            this.x = Math.round(this.x / this.gridSize) * this.gridSize;
+            this.y = Math.round(this.y / this.gridSize) * this.gridSize;
+
+            this.play(this.moveDirection);
+        }
+    }
+
 
     _checkForBox(targetX, targetY) {
         let box = null;
@@ -129,31 +155,53 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         const blocked = this._checkCollisionWithObstacles(targetX, targetY);
         if (blocked) return false;
 
-        this.scene.tweens.add({
-            targets: box,
-            x: targetX,
-            y: targetY,
-            duration: 200,
-        });
+        box._startMove(dx, dy);
 
         return true;
+    }
+
+
+    _handleBoxCollision(player, box) {
+        if (this.isMoving) {
+            this.isMoving = false;
+
+            this.setVelocity(0, 0);
+
+            this.x = Math.round(this.x / this.gridSize) * this.gridSize;
+            this.y = Math.round(this.y / this.gridSize) * this.gridSize;
+
+            this.play(this.moveDirection);
+            let dx = 0;
+            let dy = 0;
+
+            if (this.cursors.left.isDown) {
+                dx = -this.gridSize;
+            } else if (this.cursors.right.isDown) {
+                dx = this.gridSize;
+            } else if (this.cursors.up.isDown) {
+                dy = -this.gridSize;
+            } else if (this.cursors.down.isDown) {
+                dy = this.gridSize;
+            }
+
+            if (dx !== 0 || dy !== 0) {
+                this._tryPushBox(box, dx, dy);
+            }
+        }
     }
 
     _checkCollisionWithObstacles(targetX, targetY) {
         let isBlocked = false;
 
-        const tileAtTarget = this.scene.groundLayer.getTileAtWorldXY(targetX, targetY) || 
-                             this.scene.wallLayer.getTileAtWorldXY(targetX, targetY);
-        
-        if (tileAtTarget && tileAtTarget.properties.collides) {
+        this.scene.physics.world.collide(this.scene.boxes, this.scene.wallLayer, () => {
             isBlocked = true;
-        }
-        this.scene.boxes.getChildren().forEach((box) => {
-            if (Phaser.Math.Fuzzy.Equal(box.x, targetX, 1) && Phaser.Math.Fuzzy.Equal(box.y, targetY, 1)) {
-                isBlocked = true;
-            }
+        });
+
+        this.scene.physics.world.collide(this.scene.boxes, this.scene.floorObstacleLayer, () => {
+            isBlocked = true;
         });
 
         return isBlocked;
     }
+
 }
